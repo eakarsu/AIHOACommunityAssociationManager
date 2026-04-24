@@ -1,0 +1,29 @@
+require('dotenv').config({ path: '../.env' });
+
+async function askAI(prompt, systemPrompt = 'You are a helpful AI assistant for HOA community management.') {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'http://localhost:3000',
+      'X-Title': 'AI HOA Manager',
+    },
+    body: JSON.stringify({
+      model: process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4.5',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 2000,
+    }),
+  });
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || 'OpenRouter API error');
+  }
+  return data.choices?.[0]?.message?.content || 'No response generated.';
+}
+
+module.exports = { askAI };
