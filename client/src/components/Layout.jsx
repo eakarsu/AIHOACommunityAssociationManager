@@ -24,6 +24,7 @@ const navItems = [
   ]},
   { section: 'AI', items: [
     { path: '/ai-center', label: 'AI Center', icon: '🤖' },
+    { path: '/ai-advanced', label: 'Advanced AI', icon: '⚡' },
   ]},
 ];
 

@@ -4,8 +4,13 @@ const { askAI } = require('../openrouter');
 
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM maintenance_requests ORDER BY created_at DESC');
-    res.json(result.rows);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const offset = (page - 1) * limit;
+    const countRes = await pool.query('SELECT COUNT(*) FROM maintenance_requests');
+    const total = parseInt(countRes.rows[0].count);
+    const result = await pool.query('SELECT * FROM maintenance_requests ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -49,14 +54,28 @@ router.delete('/:id', async (req, res) => {
 router.post('/ai-assess', async (req, res) => {
   try {
     const { request } = req.body;
+
+    // Fetch related vendors by category
+    let vendorContext = '';
+    try {
+      const vendors = await pool.query(
+        'SELECT name, specialty, contact_phone, contract_status FROM vendors WHERE specialty ILIKE $1 LIMIT 3',
+        [`%${request.category || ''}%`]
+      );
+      if (vendors.rows.length > 0) {
+        const vendorList = vendors.rows.map(v => `${v.name} (${v.specialty}, status: ${v.contract_status})`).join(', ');
+        vendorContext = `\n\nAvailable vendors for this category: ${vendorList}`;
+      }
+    } catch (_) {}
+
     const prompt = `Assess this HOA maintenance request and provide priority recommendation, estimated cost, and suggested vendor type:
     Title: ${request.title}
     Description: ${request.description}
     Category: ${request.category}
     Unit: ${request.unit_number}
-    Current Priority: ${request.priority}
+    Current Priority: ${request.priority}${vendorContext}
 
-    Provide: priority assessment, estimated cost range, recommended timeline, and suggested vendor type.`;
+    Provide: priority assessment, estimated cost range, recommended timeline, and suggested vendor type/name if available.`;
     const result = await askAI(prompt, 'You are an experienced property maintenance manager.');
     res.json({ assessment: result });
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -18,27 +18,102 @@ function AIResponse({ response, loading, label }) {
   );
 }
 
+function RateLimitAlert({ onClose }) {
+  return (
+    <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ color: '#92400e', fontWeight: 500 }}>⚠️ AI rate limit reached. Please wait before making more AI requests.</span>
+      <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '18px' }}>×</button>
+    </div>
+  );
+}
+
+function AiModal({ title, response, loading, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: '700px', width: '100%' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2>🤖 {title}</h2>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>Close</button>
+        </div>
+        {loading ? (
+          <div className="ai-loading"><div className="spinner"></div>AI is generating response...</div>
+        ) : (
+          <div className="ai-response-body" style={{ maxHeight: '60vh', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{response}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Pagination({ pagination, onPageChange }) {
+  if (!pagination || pagination.totalPages <= 1) return null;
+  const { page, totalPages, total, limit } = pagination;
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+      <span style={{ fontSize: '13px', color: '#64748b' }}>Showing {start}–{end} of {total} records</span>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        <button
+          className="btn btn-secondary btn-sm"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          ← Prev
+        </button>
+        <span style={{ fontSize: '13px', color: '#475569', padding: '4px 8px', lineHeight: '1.8' }}>
+          Page {page} / {totalPages}
+        </span>
+        <button
+          className="btn btn-secondary btn-sm"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function CrudPage({ title, subtitle, endpoint, columns, fields, aiAction, aiLabel, buildAiPayload, renderAiForm }) {
   const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [formData, setFormData] = useState({});
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalTitle, setAiModalTitle] = useState('');
   const [error, setError] = useState('');
+  const [rateLimited, setRateLimited] = useState(false);
 
   // AI Center form state
   const [aiFormData, setAiFormData] = useState({});
   const [showAiForm, setShowAiForm] = useState(false);
 
-  useEffect(() => { loadItems(); }, []);
+  useEffect(() => { loadItems(currentPage); }, [currentPage]);
 
-  const loadItems = async () => {
+  const loadItems = async (page = 1) => {
     try {
-      const data = await api.get(endpoint);
-      setItems(data);
+      const data = await api.get(`${endpoint}?page=${page}&limit=20`);
+      // Support both paginated { data, pagination } and plain array responses
+      if (data && data.data && data.pagination) {
+        setItems(data.data);
+        setPagination(data.pagination);
+      } else {
+        setItems(Array.isArray(data) ? data : []);
+        setPagination(null);
+      }
     } catch (err) { setError(err.message); }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
   const handleRowClick = (item) => {
@@ -71,7 +146,7 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
     try {
       await api.del(`${endpoint}/${item.id}`);
       setSelected(null);
-      loadItems();
+      loadItems(currentPage);
     } catch (err) { setError(err.message); }
   };
 
@@ -85,36 +160,51 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
       }
       setShowForm(false);
       setSelected(null);
-      loadItems();
+      loadItems(currentPage);
     } catch (err) { setError(err.message); }
   };
 
   const handleAI = async (item) => {
+    if (rateLimited) return;
     setAiLoading(true);
     setAiResponse('');
+    setAiModalTitle(aiLabel || 'AI Analyze');
+    setAiModalOpen(true);
     try {
       const payload = buildAiPayload ? buildAiPayload(item) : { [endpoint.split('/').pop().replace(/s$/, '')]: item };
       const data = await api.post(`${endpoint}/${aiAction}`, payload);
       const resKey = Object.keys(data)[0];
       setAiResponse(data[resKey]);
     } catch (err) {
-      setAiResponse('Error: ' + err.message);
+      if (err.message === '__RATE_LIMIT__') {
+        setRateLimited(true);
+        setAiModalOpen(false);
+      } else {
+        setAiResponse('Error: ' + err.message);
+      }
     } finally {
       setAiLoading(false);
     }
   };
 
   const handleAiFormSubmit = async () => {
+    if (rateLimited) return;
     setAiLoading(true);
     setAiResponse('');
+    setAiModalTitle(aiLabel || 'AI Analysis');
+    setAiModalOpen(true);
     try {
-      // For bulk analysis endpoints, include the items list
       const payload = { ...aiFormData, transactions: items, bookings: items, spots: items };
       const data = await api.post(`${endpoint}/${aiAction}`, payload);
       const resKey = Object.keys(data)[0];
       setAiResponse(data[resKey]);
     } catch (err) {
-      setAiResponse('Error: ' + err.message);
+      if (err.message === '__RATE_LIMIT__') {
+        setRateLimited(true);
+        setAiModalOpen(false);
+      } else {
+        setAiResponse('Error: ' + err.message);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -149,6 +239,7 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
       </div>
 
       {error && <p className="error-text mb-4">{error}</p>}
+      {rateLimited && <RateLimitAlert onClose={() => setRateLimited(false)} />}
 
       {/* Detail View */}
       {selected && (
@@ -171,12 +262,12 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
             <button className="btn btn-primary btn-sm" onClick={() => handleEdit(selected)}>Edit</button>
             <button className="btn btn-danger btn-sm" onClick={() => handleDelete(selected)}>Delete</button>
             {aiAction && !renderAiForm && (
-              <button className="btn btn-ai btn-sm" onClick={() => handleAI(selected)} disabled={aiLoading}>
+              <button className="btn btn-ai btn-sm" onClick={() => handleAI(selected)} disabled={aiLoading || rateLimited}>
                 🤖 {aiLabel || 'AI Analyze'}
               </button>
             )}
           </div>
-          <AIResponse response={aiResponse} loading={aiLoading} label={aiLabel} />
+          {!aiModalOpen && <AIResponse response={aiResponse} loading={aiLoading} label={aiLabel} />}
         </div>
       )}
 
@@ -189,11 +280,11 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
           </div>
           {renderAiForm(aiFormData, setAiFormData)}
           <div className="detail-actions">
-            <button className="btn btn-ai" onClick={handleAiFormSubmit} disabled={aiLoading}>
+            <button className="btn btn-ai" onClick={handleAiFormSubmit} disabled={aiLoading || rateLimited}>
               {aiLoading ? 'Generating...' : `🤖 Generate`}
             </button>
           </div>
-          <AIResponse response={aiResponse} loading={aiLoading} label={aiLabel} />
+          {!aiModalOpen && <AIResponse response={aiResponse} loading={aiLoading} label={aiLabel} />}
         </div>
       )}
 
@@ -205,6 +296,7 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
               {columns.map((col) => (
                 <th key={col.key}>{col.label}</th>
               ))}
+              {aiAction && !renderAiForm && <th>AI</th>}
             </tr>
           </thead>
           <tbody>
@@ -221,13 +313,26 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
                           : (item[col.key] || '-')}
                   </td>
                 ))}
+                {aiAction && !renderAiForm && (
+                  <td onClick={e => e.stopPropagation()}>
+                    <button
+                      className="btn btn-ai btn-sm"
+                      onClick={() => handleAI(item)}
+                      disabled={aiLoading || rateLimited}
+                      title={aiLabel || 'AI Analyze'}
+                    >
+                      🤖
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
             {items.length === 0 && (
-              <tr><td colSpan={columns.length} className="text-center" style={{ padding: '40px', color: '#94a3b8' }}>No items found</td></tr>
+              <tr><td colSpan={columns.length + (aiAction && !renderAiForm ? 1 : 0)} className="text-center" style={{ padding: '40px', color: '#94a3b8' }}>No items found</td></tr>
             )}
           </tbody>
         </table>
+        <Pagination pagination={pagination} onPageChange={handlePageChange} />
       </div>
 
       {/* Form Modal */}
@@ -258,6 +363,16 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
             </form>
           </div>
         </div>
+      )}
+
+      {/* AI Result Modal */}
+      {aiModalOpen && (
+        <AiModal
+          title={aiModalTitle}
+          response={aiResponse}
+          loading={aiLoading}
+          onClose={() => { setAiModalOpen(false); setAiResponse(''); }}
+        />
       )}
     </div>
   );

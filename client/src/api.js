@@ -11,6 +11,18 @@ async function request(path, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
+
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  if (res.status === 429) {
+    throw new Error('__RATE_LIMIT__');
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(err.error || 'Request failed');
