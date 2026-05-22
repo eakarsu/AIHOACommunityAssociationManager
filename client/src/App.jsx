@@ -19,6 +19,7 @@ import Parking from './pages/Parking';
 import AICenter from './pages/AICenter';
 import AIAdvanced from './pages/AIAdvanced';
 import AppealsAndBallots from './pages/AppealsAndBallots';
+import CovenantVariancePrecedent from './pages/CovenantVariancePrecedent';
 
 // === Batch 04 Gaps & Frontend Mounts ===
 import CfAgenticCommunityManagerHandlingRouti from './pages/CfAgenticCommunityManagerHandlingRouti';
@@ -36,6 +37,11 @@ import GapNoHomeownerSelfServicePortalBeyond from './pages/GapNoHomeownerSelfSer
 import GapNoWebhookSurface from './pages/GapNoWebhookSurface';
 import GapNoFileUploadPipelineForArchitectura from './pages/GapNoFileUploadPipelineForArchitectura';
 import GapNoRealTimeMeetingStreaming from './pages/GapNoRealTimeMeetingStreaming';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
+import TimelineView from './pages/TimelineView';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -82,6 +88,10 @@ export default function App() {
     <BrowserRouter>
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
+        <Route path="/insights/timeline" element={<TimelineView />} />
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
           <Route path="/" element={<Dashboard />} />
           <Route path="/residents" element={<Residents />} />
           <Route path="/properties" element={<Properties />} />
@@ -99,6 +109,7 @@ export default function App() {
           <Route path="/ai-center" element={<AICenter />} />
           <Route path="/ai-advanced" element={<AIAdvanced />} />
           <Route path="/governance" element={<AppealsAndBallots />} />
+          <Route path="/covenant-variance-precedent" element={<CovenantVariancePrecedent />} />
           {/* // === Batch 04 Gaps & Frontend Mounts === */}
           <Route path="/cf-agentic-community-manager-handling-routi" element={<CfAgenticCommunityManagerHandlingRouti />} />
           <Route path="/cf-architectural-compliance-scanner-flaggin" element={<CfArchitecturalComplianceScannerFlaggin />} />

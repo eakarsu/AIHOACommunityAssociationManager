@@ -88,6 +88,7 @@ app.use('/api/violation-appeals', require('./routes/appeals'));
 app.use('/api/ballots', require('./routes/voting'));
 app.use('/api/reserve-study', require('./routes/reserveStudy'));
 app.use('/api/architectural-scanner', require('./routes/architecturalScanner'));
+app.use('/api/covenant-variance-precedent', require('./routes/covenantVariancePrecedent'));
 
 // AI analyses history endpoint (paginated)
 app.get('/api/ai-analyses', authenticateToken, async (req, res) => {
