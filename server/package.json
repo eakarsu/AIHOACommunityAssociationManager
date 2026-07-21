@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "test:governance": "node --test tests/governance.test.js",
+    "check:governance": "node --check governance/workflowCore.js && node --check governance/routerFactory.js && node --check index.js && npm run test:governance"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

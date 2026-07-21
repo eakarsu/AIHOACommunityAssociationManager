@@ -7,11 +7,6 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const autoFill = () => {
-    setEmail('admin@hoamanager.com');
-    setPassword('password123');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -33,9 +28,6 @@ export default function Login({ onLogin }) {
           <h1>AI HOA Manager</h1>
           <p>Sunset Ridge Community Association</p>
         </div>
-        <button className="auto-fill-btn" onClick={autoFill}>
-          Quick Login - Auto Fill Credentials
-        </button>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>

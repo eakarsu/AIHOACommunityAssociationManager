@@ -6,17 +6,12 @@ require('dotenv').config({ path: '../.env' });
 
 const { authenticateToken } = require('./middleware/auth');
 const pool = require('./db');
+const { validateRuntime } = require('./governance/runtime');
+const governanceRouter = require('./governance/router');
+
+validateRuntime();
 
 // === Batch 04 Gaps & Frontend Mounts ===
-const route_gap_no_violation_enforcement_severity_adviso = require('./routes/gap-no-violation-enforcement-severity-adviso');
-const route_gap_no_reserve_study_projector_for_capital = require('./routes/gap-no-reserve-study-projector-for-capital');
-const route_gap_no_property_assessment_fairness_audit = require('./routes/gap-no-property-assessment-fairness-audit');
-const route_gap_no_parking_assignment_optimizer = require('./routes/gap-no-parking-assignment-optimizer');
-const route_gap_no_payment_processing_integration = require('./routes/gap-no-payment-processing-integration');
-const route_gap_no_homeowner_self_service_portal_beyond = require('./routes/gap-no-homeowner-self-service-portal-beyond');
-const route_gap_no_webhook_surface = require('./routes/gap-no-webhook-surface');
-const route_gap_no_file_upload_pipeline_for_architectura = require('./routes/gap-no-file-upload-pipeline-for-architectura');
-const route_gap_no_real_time_meeting_streaming = require('./routes/gap-no-real-time-meeting-streaming');
 const app = express();
 
 // Security middleware
@@ -34,7 +29,7 @@ app.use(rateLimit({
 }));
 
 // Ensure extra tables exist
-pool.query(`
+if (process.env.ENABLE_LEGACY_SCHEMA_BOOTSTRAP === 'true') pool.query(`
   CREATE TABLE IF NOT EXISTS ai_analyses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER,
@@ -89,6 +84,7 @@ app.use('/api/ballots', require('./routes/voting'));
 app.use('/api/reserve-study', require('./routes/reserveStudy'));
 app.use('/api/architectural-scanner', require('./routes/architecturalScanner'));
 app.use('/api/covenant-variance-precedent', require('./routes/covenantVariancePrecedent'));
+app.use('/api/governed-association-records', governanceRouter);
 
 // AI analyses history endpoint (paginated)
 app.get('/api/ai-analyses', authenticateToken, async (req, res) => {
@@ -174,15 +170,6 @@ app.get('/api/dues/summary', authenticateToken, async (req, res) => {
 
 const PORT = process.env.SERVER_PORT || 3001;
 
-app.use('/api/gap-no-violation-enforcement-severity-adviso', route_gap_no_violation_enforcement_severity_adviso);
-app.use('/api/gap-no-reserve-study-projector-for-capital', route_gap_no_reserve_study_projector_for_capital);
-app.use('/api/gap-no-property-assessment-fairness-audit', route_gap_no_property_assessment_fairness_audit);
-app.use('/api/gap-no-parking-assignment-optimizer', route_gap_no_parking_assignment_optimizer);
-app.use('/api/gap-no-payment-processing-integration', route_gap_no_payment_processing_integration);
-app.use('/api/gap-no-homeowner-self-service-portal-beyond', route_gap_no_homeowner_self_service_portal_beyond);
-app.use('/api/gap-no-webhook-surface', route_gap_no_webhook_surface);
-app.use('/api/gap-no-file-upload-pipeline-for-architectura', route_gap_no_file_upload_pipeline_for_architectura);
-app.use('/api/gap-no-real-time-meeting-streaming', route_gap_no_real_time_meeting_streaming);
 
 app.listen(PORT, () => {
   console.log(`🏠 HOA Manager API running on port ${PORT}`);

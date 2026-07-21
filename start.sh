@@ -1,72 +1,60 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "=========================================="
-echo "  AI HOA Community Association Manager"
-echo "  Sunset Ridge Community"
-echo "=========================================="
-echo ""
+project_dir="$(cd "$(dirname "$0")" && pwd)"
+backend_port="3001"
+frontend_port="3000"
+backend_pid=""
+frontend_pid=""
 
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-# Load environment variables
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
-  echo -e "${GREEN}✓ Environment variables loaded${NC}"
-else
-  echo -e "${RED}✗ .env file not found! Please create one.${NC}"
+fail() {
+  echo "start.sh: $*" >&2
   exit 1
-fi
+}
 
-SERVER_PORT=${SERVER_PORT:-3001}
-CLIENT_PORT=${CLIENT_PORT:-3000}
+[ -f "$project_dir/.env" ] || fail "copy .env.example to .env and supply local secrets"
+jwt_secret="$(sed -n 's/^JWT_SECRET=//p' "$project_dir/.env" | tail -n 1)"
+[ "${#jwt_secret}" -ge 32 ] || fail "JWT_SECRET in .env must contain at least 32 characters"
+[ -d "$project_dir/server/node_modules" ] || fail "backend dependencies are absent; run the documented npm ci step explicitly"
+[ -d "$project_dir/client/node_modules" ] || fail "frontend dependencies are absent; run the documented npm ci step explicitly"
 
-# Kill processes on used ports
-echo -e "${YELLOW}Cleaning up ports ${SERVER_PORT} and ${CLIENT_PORT}...${NC}"
-lsof -ti:${SERVER_PORT} | xargs kill -9 2>/dev/null
-lsof -ti:${CLIENT_PORT} | xargs kill -9 2>/dev/null
-echo -e "${GREEN}✓ Ports cleaned${NC}"
+check_port() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1 && lsof -ti ":${port}" >/dev/null 2>&1; then
+    fail "port ${port} is already owned by another process; stop it explicitly or configure another port"
+  fi
+}
 
-# Check if PostgreSQL is running
-if ! pg_isready -q 2>/dev/null; then
-  echo -e "${YELLOW}Starting PostgreSQL...${NC}"
-  brew services start postgresql@14 2>/dev/null || brew services start postgresql 2>/dev/null || true
-  sleep 2
-fi
+cleanup() {
+  trap - EXIT
+  [ -z "$frontend_pid" ] || kill "$frontend_pid" 2>/dev/null || true
+  [ -z "$backend_pid" ] || kill "$backend_pid" 2>/dev/null || true
+  [ -z "$frontend_pid" ] || wait "$frontend_pid" 2>/dev/null || true
+  [ -z "$backend_pid" ] || wait "$backend_pid" 2>/dev/null || true
+}
 
-# Create database if it doesn't exist
-echo -e "${BLUE}Setting up database...${NC}"
-createdb hoa_manager 2>/dev/null || true
-echo -e "${GREEN}✓ Database ready${NC}"
+shutdown() {
+  cleanup
+  exit 130
+}
 
-# Install dependencies
-echo -e "${BLUE}Installing dependencies...${NC}"
-npm install --silent 2>/dev/null
-cd server && npm install --silent 2>/dev/null && cd ..
-cd client && npm install --silent 2>/dev/null && cd ..
-echo -e "${GREEN}✓ Dependencies installed${NC}"
+trap cleanup EXIT
+trap shutdown INT TERM
+check_port "$backend_port"
+check_port "$frontend_port"
 
-# Seed database
-echo -e "${BLUE}Seeding database...${NC}"
-cd server && node seed.js && cd ..
-echo -e "${GREEN}✓ Database seeded${NC}"
+(
+  cd "$project_dir/server"
+  node index.js
+) &
+backend_pid="$!"
 
-echo ""
-echo -e "${GREEN}=========================================="
-echo -e "  Starting Application with Hot Reload"
-echo -e "==========================================${NC}"
-echo -e "${BLUE}  Backend:  http://localhost:${SERVER_PORT}${NC}"
-echo -e "${BLUE}  Frontend: http://localhost:${CLIENT_PORT}${NC}"
-echo -e "${YELLOW}  Login: admin@hoamanager.com / password123${NC}"
-echo ""
+(
+  cd "$project_dir/client"
+  npm run dev -- --host 127.0.0.1 --port "$frontend_port"
+) &
+frontend_pid="$!"
 
-# Start both servers with hot reload using concurrently
-npx concurrently \
-  --names "SERVER,CLIENT" \
-  --prefix-colors "blue,green" \
-  "cd server && npx nodemon --watch . --ext js,json index.js" \
-  "cd client && npx vite --port ${CLIENT_PORT} --host"
+echo "Backend child $backend_pid; frontend child $frontend_pid."
+echo "No dependency install, database creation, migration, seed, system-service start, or port-owner termination was performed."
+wait "$backend_pid" "$frontend_pid"
