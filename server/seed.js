@@ -6,6 +6,12 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+function requireDemoPassword() {
+  const password = process.env.DEMO_PASSWORD || process.env.SEED_DEMO_PASSWORD || process.env.DEMO_SEED_PASSWORD || '';
+  if (password.length < 12 || password.length > 1024) throw new Error('DEMO_PASSWORD must contain 12-1024 characters');
+  return password;
+}
+
 async function seed() {
   if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DEMO_SEED !== 'true') {
     throw new Error('Destructive demo seed refused. Set ALLOW_DEMO_SEED=true outside production.');
@@ -223,7 +229,7 @@ async function seed() {
     console.log('Seeding data...');
 
     // Hash password for users
-    const passwordHash = await bcrypt.hash('password123', 10);
+    const passwordHash = await bcrypt.hash(requireDemoPassword(), 10);
 
     // --- USERS (16) ---
     console.log('Seeding users...');
@@ -536,7 +542,7 @@ async function seed() {
     `);
 
     console.log('Seed completed successfully!');
-    console.log('Admin login: admin@hoamanager.com / password123');
+    console.log('Demo login users provisioned from the local environment.');
   } catch (err) {
     console.error('Seed failed:', err);
   } finally {
