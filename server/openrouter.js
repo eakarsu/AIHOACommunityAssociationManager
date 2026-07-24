@@ -1,7 +1,8 @@
 require('dotenv').config({ path: '../.env' });
 
 async function askAI(prompt, systemPrompt = 'You are a helpful AI assistant for HOA community management.') {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -19,6 +20,10 @@ async function askAI(prompt, systemPrompt = 'You are a helpful AI assistant for 
     }),
   });
 
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`OpenRouter ${response.status}: ${detail.slice(0, 200)}`);
+  }
   const data = await response.json();
   if (data.error) {
     throw new Error(data.error.message || 'OpenRouter API error');

@@ -2,8 +2,6 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "$0")" && pwd)"
-backend_port="3001"
-frontend_port="3000"
 backend_pid=""
 frontend_pid=""
 
@@ -13,6 +11,12 @@ fail() {
 }
 
 [ -f "$project_dir/.env" ] || fail "copy .env.example to .env and supply local secrets"
+set -a
+# shellcheck disable=SC1091
+source "$project_dir/.env"
+set +a
+backend_port="${SERVER_PORT:-${BACKEND_PORT:-3001}}"
+frontend_port="${FRONTEND_PORT:-${CLIENT_PORT:-3000}}"
 jwt_secret="$(sed -n 's/^JWT_SECRET=//p' "$project_dir/.env" | tail -n 1)"
 [ "${#jwt_secret}" -ge 32 ] || fail "JWT_SECRET in .env must contain at least 32 characters"
 [ -d "$project_dir/server/node_modules" ] || fail "backend dependencies are absent; run the documented npm ci step explicitly"
@@ -51,7 +55,7 @@ backend_pid="$!"
 
 (
   cd "$project_dir/client"
-  npm run dev -- --host 127.0.0.1 --port "$frontend_port"
+  npm run dev -- --host "${HOST:-127.0.0.1}" --port "$frontend_port"
 ) &
 frontend_pid="$!"
 
