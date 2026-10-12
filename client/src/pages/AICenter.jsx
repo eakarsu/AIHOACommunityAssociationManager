@@ -1,5 +1,8 @@
+
+import FullAIExamples, { useFullAIExamples } from "../components/FullAIExamples.jsx";
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import FormattedAIReport from '../components/FormattedAIReport';
 
 const aiFeatures = [
   { id: 'chat', icon: '💬', title: 'AI HOA Assistant', desc: 'Ask any question about HOA management, governance, or community operations', endpoint: '/ai/chat', fields: [{ key: 'message', label: 'Your Question', type: 'textarea', placeholder: 'Ask anything about HOA management...' }], responseKey: 'response' },
@@ -29,10 +32,11 @@ function HistoryTab() {
   useEffect(() => {
     api.get('/ai-analyses')
       .then(data => {
-        setHistory(data);
+        const analyses = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.items) ? data.items : [];
+        setHistory(analyses);
         // Group by tool_name
         const groups = {};
-        data.forEach(item => {
+        analyses.forEach(item => {
           const key = item.tool_name || 'unknown';
           if (!groups[key]) groups[key] = [];
           groups[key].push(item);
@@ -75,9 +79,7 @@ function HistoryTab() {
                     <span style={{ fontSize: '12px', color: '#94a3b8' }}>{new Date(item.created_at).toLocaleString()}</span>
                     {item.entity_type && <span style={{ fontSize: '12px', color: '#7c3aed' }}>{item.entity_type} #{item.entity_id}</span>}
                   </div>
-                  <div style={{ fontSize: '13px', color: '#475569', maxHeight: '120px', overflowY: 'auto', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {item.result ? item.result.substring(0, 400) + (item.result.length > 400 ? '...' : '') : '—'}
-                  </div>
+                  <FormattedAIReport response={item.result} title={`${toolName.replace(/-/g, ' ')} report`} />
                 </div>
               ))}
             </div>
@@ -89,6 +91,8 @@ function HistoryTab() {
 }
 
 export default function AICenter() {
+  const fullAIExamples = useFullAIExamples();
+
   const [activeTab, setActiveTab] = useState('tools'); // 'tools' | 'history'
   const [activeFeature, setActiveFeature] = useState(null);
   const [formData, setFormData] = useState({});
@@ -121,7 +125,7 @@ export default function AICenter() {
   };
 
   return (
-    <div>
+    <div data-full-ai-workspace="AICenter"><FullAIExamples controller={fullAIExamples} disabled={Boolean(loading)} />
       <div className="page-header">
         <div>
           <h1>🤖 AI Center</h1>
@@ -164,14 +168,14 @@ export default function AICenter() {
                     <textarea
                       value={formData[field.key] || ''}
                       onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                      placeholder={field.placeholder}
+                      placeholder={field.placeholder} data-full-ai-field={fullAIExamples.bind({ current: formData[field.key] || '', change: e => setFormData({ ...formData, [field.key]: e.target.value }), label: "formData[field.key]", manual: false, json: false }, "p1-9601", [(typeof field === 'object' ? field?.key ?? field?.name ?? field?.id ?? '' : field),field.key].join(":"))}
                     />
                   ) : (
                     <input
                       type={field.type || 'text'}
                       value={formData[field.key] || ''}
                       onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                      placeholder={field.placeholder}
+                      placeholder={field.placeholder} data-full-ai-field={fullAIExamples.bind({ current: formData[field.key] || '', change: e => setFormData({ ...formData, [field.key]: e.target.value }), label: "formData[field.key]", manual: false, json: false }, "p1-9884", [(typeof field === 'object' ? field?.key ?? field?.name ?? field?.id ?? '' : field),field.key].join(":"))}
                     />
                   )}
                 </div>
@@ -190,7 +194,7 @@ export default function AICenter() {
                   {loading ? (
                     <div className="ai-loading"><div className="spinner"></div>AI is generating response...</div>
                   ) : (
-                    <div className="ai-response-body">{response}</div>
+                    <FormattedAIReport response={response} title={`${activeFeature.title} response`} />
                   )}
                 </div>
               )}

@@ -32,7 +32,7 @@ async function request(path, options = {}) {
 
 export const api = {
   get: (path) => request(path),
-  post: (path, body) => request(path, { method: 'POST', body }),
+  post: (path, body, nativeRequestOptions = {}) => request(path, { ...({ method: 'POST', body }), ...(nativeRequestOptions) }),
   put: (path, body) => request(path, { method: 'PUT', body }),
   del: (path) => request(path, { method: 'DELETE' }),
 };

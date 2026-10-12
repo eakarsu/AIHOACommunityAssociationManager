@@ -29,7 +29,7 @@ app.use(rateLimit({
 }));
 
 // Ensure extra tables exist
-if (process.env.ENABLE_LEGACY_SCHEMA_BOOTSTRAP === 'true') pool.query(`
+pool.query(`
   CREATE TABLE IF NOT EXISTS ai_analyses (
     id SERIAL PRIMARY KEY,
     user_id INTEGER,
@@ -171,6 +171,14 @@ app.get('/api/dues/summary', authenticateToken, async (req, res) => {
 const PORT = process.env.SERVER_PORT || 3001;
 
 
+
+// Advisory AI reports only; native execution and approval routes stay unchanged.
+const aiWorkspaceSupport = require("./aiWorkspaceAdapters.cjs");
+const aiWorkspaceDatabase = require("./db.js");
+app.use('/api/report-workspace', require("./aiWorkspace.cjs").createAIWorkspaceRouter({
+  pool: aiWorkspaceDatabase, authenticateToken: require("./middleware/auth.js").authenticateToken,
+  aiRateLimiter: aiWorkspaceSupport.createWorkspaceLimiter(), features: require("./aiWorkspaceFeatures.json"),
+}));
 app.listen(PORT, () => {
   console.log(`🏠 HOA Manager API running on port ${PORT}`);
 });

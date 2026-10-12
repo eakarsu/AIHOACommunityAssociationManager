@@ -1,3 +1,8 @@
+
+import FullAIExamples, { useFullAIExamples } from "../components/FullAIExamples.jsx";
+import NativeAIControls from "../components/NativeAIControls";
+import useNativeAIRequest from "../components/useNativeAIRequest";
+import FormattedAIReport from "../components/FormattedAIReport";
 import React, { useState } from 'react';
 import { api } from '../api';
 
@@ -92,6 +97,10 @@ function RateLimitAlert({ onClose }) {
 }
 
 export default function AIAdvanced() {
+  const fullAIExamples = useFullAIExamples();
+
+  const nativeAIRequest = useNativeAIRequest();
+
   const [activeFeature, setActiveFeature] = useState(null);
   const [formData, setFormData] = useState({});
   const [response, setResponse] = useState(null);
@@ -119,7 +128,7 @@ export default function AIAdvanced() {
           body[f.key] = f.type === 'number' ? Number(v) : v;
         }
       });
-      const data = await api.post(activeFeature.endpoint, body);
+      const data = await nativeAIRequest.run((signal) => api.post(activeFeature.endpoint, body, { signal }));
       setResponse(data);
     } catch (err) {
       if (err.message === '__RATE_LIMIT__') {
@@ -134,20 +143,13 @@ export default function AIAdvanced() {
 
   const renderResponse = () => {
     if (!response) return null;
-    const candidate = response.recommendation || response.projection || response.plan
-      || response.analysis || response.result || response.data;
-    if (typeof candidate === 'string') {
-      return <div className="ai-response-body">{candidate}</div>;
-    }
     return (
-      <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '16px', borderRadius: '8px', overflow: 'auto', fontSize: '12px', whiteSpace: 'pre-wrap', maxHeight: 600 }}>
-{JSON.stringify(response, null, 2)}
-      </pre>
+      <FormattedAIReport response={response} />
     );
   };
 
   return (
-    <div>
+    <NativeAIControls busy={nativeAIRequest.busy} onCancel={nativeAIRequest.cancel} context="HOACommunity Association Manager"><div data-full-ai-workspace="AIAdvanced"><FullAIExamples controller={fullAIExamples} disabled={Boolean(loading)} /><div>
       <div className="page-header">
         <div>
           <h1>⚡ Advanced AI Tools</h1>
@@ -169,17 +171,17 @@ export default function AIAdvanced() {
             <div className="form-group" key={field.key}>
               <label>{field.label}</label>
               {field.type === 'textarea' ? (
-                <textarea
+                <textarea data-ai-field={field.key}
                   value={formData[field.key] || ''}
                   onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                  placeholder={field.placeholder}
+                  placeholder={field.placeholder} data-full-ai-field={fullAIExamples.bind({ current: formData[field.key] || '', change: e => setFormData({ ...formData, [field.key]: e.target.value }), label: "formData[field.key]", manual: false, json: false }, "p1-7045", [(typeof field === 'object' ? field?.key ?? field?.name ?? field?.id ?? '' : field),field.key].join(":"))}
                 />
               ) : (
-                <input
+                <input data-ai-field={field.key}
                   type={field.type || 'text'}
                   value={formData[field.key] || ''}
                   onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                  placeholder={field.placeholder}
+                  placeholder={field.placeholder} data-full-ai-field={fullAIExamples.bind({ current: formData[field.key] || '', change: e => setFormData({ ...formData, [field.key]: e.target.value }), label: "formData[field.key]", manual: false, json: false }, "p1-7330", [(typeof field === 'object' ? field?.key ?? field?.name ?? field?.id ?? '' : field),field.key].join(":"))}
                 />
               )}
             </div>
@@ -223,6 +225,6 @@ export default function AIAdvanced() {
           </div>
         ))}
       </div>
-    </div>
+    </div></div></NativeAIControls>
   );
 }

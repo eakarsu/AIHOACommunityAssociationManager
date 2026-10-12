@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import FormattedAIReport from '../components/FormattedAIReport';
 
 const cards = [
   { key: 'totalResidents', label: 'Total Residents', icon: '👥', color: '#dbeafe', path: '/residents' },
@@ -80,7 +81,7 @@ export default function Dashboard() {
           {loadingAI ? (
             <div className="ai-loading"><div className="spinner"></div>Analyzing community data...</div>
           ) : (
-            <div className="ai-response-body">{aiInsights}</div>
+            <div className="ai-response-body"><FormattedAIReport response={aiInsights} title="Community insights" /></div>
           )}
         </div>
       )}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import FormattedAIReport from './FormattedAIReport';
+import NativeAIControls from './NativeAIControls';
 
 function AIResponse({ response, loading, label }) {
-  if (!response && !loading) return null;
+  if ((response === '' || response == null) && !loading) return null;
   return (
     <div className="ai-response">
       <div className="ai-response-header">
@@ -12,7 +14,7 @@ function AIResponse({ response, loading, label }) {
       {loading ? (
         <div className="ai-loading"><div className="spinner"></div>AI is thinking...</div>
       ) : (
-        <div className="ai-response-body">{response}</div>
+        <div className="ai-response-body"><FormattedAIReport response={response} title={label || 'AI Analysis'} /></div>
       )}
     </div>
   );
@@ -38,7 +40,7 @@ function AiModal({ title, response, loading, onClose }) {
         {loading ? (
           <div className="ai-loading"><div className="spinner"></div>AI is generating response...</div>
         ) : (
-          <div className="ai-response-body" style={{ maxHeight: '60vh', overflowY: 'auto', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{response}</div>
+          <div className="ai-response-body" style={{ maxHeight: '60vh', overflowY: 'auto', lineHeight: 1.6 }}><FormattedAIReport response={response} title={title} /></div>
         )}
       </div>
     </div>
@@ -95,6 +97,23 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
   // AI Center form state
   const [aiFormData, setAiFormData] = useState({});
   const [showAiForm, setShowAiForm] = useState(false);
+  const aiFormPresets = endpoint === '/residents' ? ['Welcome letter', 'Reminder notice', 'Maintenance update'].map((name, index) => ({ name, fill: () => {
+    const resident = items[index % items.length];
+    if (!resident) return { manual: ['a resident from the loaded records'] };
+    setAiFormData({ resident: { name: resident.name, unit_number: resident.unit_number }, messageType: ['welcome letter', 'reminder notice', 'maintenance update'][index], context: [
+      'Welcome this resident to the community and explain where to find association rules and contact information.',
+      'Remind this resident about the upcoming community meeting and where to find the agenda.',
+      'Explain that a maintenance request is under review and provide a clear next step without inventing a completion date.',
+    ][index] });
+    return { filled: 4 };
+  } })) : endpoint === '/communications' ? ['Community notice', 'Board newsletter', 'Maintenance alert'].map((name, index) => ({ name, fill: () => {
+    setAiFormData({ type: ['notice', 'newsletter', 'alert'][index], topic: [
+      'Remind residents to review the upcoming community meeting agenda and submit questions in advance.',
+      'Summarize recent board activities and invite feedback on proposed common area improvements.',
+      'Inform residents that common area maintenance is being planned; confirm timing before distribution.',
+    ][index], audience: ['all residents', 'board members', 'homeowners'][index], tone: ['professional and friendly', 'formal', 'urgent and direct'][index] });
+    return { filled: 4 };
+  } })) : null;
 
   useEffect(() => { loadItems(currentPage); }, [currentPage]);
 
@@ -102,14 +121,15 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
     try {
       const data = await api.get(`${endpoint}?page=${page}&limit=20`);
       // Support both paginated { data, pagination } and plain array responses
-      if (data && data.data && data.pagination) {
+      if (data && Array.isArray(data.data)) {
         setItems(data.data);
-        setPagination(data.pagination);
+        setPagination(data.pagination || null);
       } else {
-        setItems(Array.isArray(data) ? data : []);
+        setItems(Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []);
         setPagination(null);
       }
-    } catch (err) { setError(err.message); }
+      setError('');
+    } catch (err) { setItems([]); setError(err.message); }
   };
 
   const handlePageChange = (newPage) => {
@@ -278,7 +298,7 @@ export default function CrudPage({ title, subtitle, endpoint, columns, fields, a
             <h2>🤖 {aiLabel}</h2>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowAiForm(false)}>Close</button>
           </div>
-          {renderAiForm(aiFormData, setAiFormData)}
+          {aiFormPresets ? <NativeAIControls presets={aiFormPresets} busy={aiLoading} context="community association communication">{renderAiForm(aiFormData, setAiFormData)}</NativeAIControls> : renderAiForm(aiFormData, setAiFormData)}
           <div className="detail-actions">
             <button className="btn btn-ai" onClick={handleAiFormSubmit} disabled={aiLoading || rateLimited}>
               {aiLoading ? 'Generating...' : `🤖 Generate`}
