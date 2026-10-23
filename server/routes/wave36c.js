@@ -1,0 +1,12 @@
+const express=require('express'); const {filterRecords,toCsv,toJson,runFeature,FEATURES}=require('../wave36c');
+const router=express.Router(); const {authenticateToken}=require('../middleware/auth'); const store=new Map(); let seq=1;
+function uid(req){ return String(req.user?.id||req.user?.email||'anon'); }
+function mine(req){ return [...store.values()].filter(t=>t.ownerId===uid(req)); }
+router.get('/tasks',authenticateToken,(req,res)=>res.json(filterRecords(mine(req),req.query)));
+router.post('/tasks',authenticateToken,(req,res)=>{ const title=(req.body?.title||req.body?.task||'').trim(); if(!title) return res.status(400).json({error:'title is required'}); const t={id:seq++,title,status:req.body.status||'Queued',priority:req.body.priority||'Medium',owner:req.body.owner||req.user?.email||'User',ownerId:uid(req),createdAt:new Date().toISOString()}; store.set(t.id,t); res.status(201).json(t); });
+router.patch('/tasks/:id',authenticateToken,(req,res)=>{ const t=store.get(Number(req.params.id)); if(!t||t.ownerId!==uid(req)) return res.status(404).json({error:'Task not found'}); if(req.body.title) t.title=String(req.body.title); if(req.body.status) t.status=req.body.status; if(req.body.priority) t.priority=req.body.priority; if(req.body.owner) t.owner=req.body.owner; res.json(t); });
+router.put('/tasks/:id',authenticateToken,(req,res)=>{ const t=store.get(Number(req.params.id)); if(!t||t.ownerId!==uid(req)) return res.status(404).json({error:'Task not found'}); Object.assign(t,{title:req.body.title??t.title,status:req.body.status??t.status,priority:req.body.priority??t.priority}); res.json(t); });
+router.get('/tasks/export',authenticateToken,(req,res)=>{ const rows=filterRecords(mine(req),req.query); if((req.query.format||'json')==='csv'){ res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="tasks.csv"'); return res.send(toCsv(rows)); } res.setHeader('Content-Disposition','attachment; filename="tasks.json"'); return res.type('json').send(toJson(rows)); });
+router.get('/ai/features',authenticateToken,(req,res)=>res.json({features:Object.keys(FEATURES),aiGenerated:false}));
+router.post('/ai/:feature',authenticateToken,(req,res)=>{ const out=runFeature(req.params.feature, Array.isArray(req.body?.records)?req.body.records:mine(req)); if(!out) return res.status(404).json({error:'Unknown feature'}); res.json(out); });
+module.exports=router;

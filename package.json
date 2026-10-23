@@ -5,7 +5,8 @@
   "scripts": {
     "install:all": "cd server && npm install && cd ../client && npm install",
     "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
-    "start": "bash start.sh"
+    "start": "bash start.sh",
+    "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

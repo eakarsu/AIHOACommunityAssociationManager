@@ -9,18 +9,22 @@ export default function Login({ onLogin }) {
   const demoAvailable = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
     && Boolean(import.meta.env.VITE_DEMO_EMAIL && import.meta.env.VITE_DEMO_PASSWORD);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const signInWith = async (loginEmail, loginPassword) => {
     setError('');
     setLoading(true);
     try {
-      const data = await api.post('/auth/login', { email, password });
+      const data = await api.post('/auth/login', { email: loginEmail, password: loginPassword });
       onLogin(data.user, data.token);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await signInWith(email, password);
   };
 
   return (
@@ -42,7 +46,13 @@ export default function Login({ onLogin }) {
           {error && <p className="error-text">{error}</p>}
           <button
             type="button"
-            onClick={() => { setEmail(import.meta.env.VITE_DEMO_EMAIL); setPassword(import.meta.env.VITE_DEMO_PASSWORD); setError(''); }}
+            onClick={() => {
+              const demoEmail = import.meta.env.VITE_DEMO_EMAIL || '';
+              const demoPassword = import.meta.env.VITE_DEMO_PASSWORD || '';
+              setEmail(demoEmail);
+              setPassword(demoPassword);
+              signInWith(demoEmail, demoPassword);
+            }}
             disabled={!demoAvailable || loading}
             aria-label="Fill demo credentials"
             style={{ width: '100%', marginBottom: '12px', padding: '10px 14px', borderRadius: '8px', border: '1px solid currentColor', background: 'transparent', cursor: 'pointer' }}

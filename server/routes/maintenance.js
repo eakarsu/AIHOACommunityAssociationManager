@@ -7,9 +7,15 @@ router.get('/', async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const offset = (page - 1) * limit;
-    const countRes = await pool.query('SELECT COUNT(*) FROM maintenance_requests');
+    const conds=[], qp=[]; const {search,status,priority,category}=req.query;
+    if(search){ qp.push(`%${search}%`); conds.push(`(title ILIKE $${qp.length} OR description ILIKE $${qp.length} OR unit_number ILIKE $${qp.length})`); }
+    if(status){ qp.push(status); conds.push(`status = $${qp.length}`); }
+    if(priority){ qp.push(priority); conds.push(`priority = $${qp.length}`); }
+    if(category){ qp.push(category); conds.push(`category = $${qp.length}`); }
+    const where=conds.length?' WHERE '+conds.join(' AND '):'';
+    const countRes = await pool.query('SELECT COUNT(*) FROM maintenance_requests'+where, qp);
     const total = parseInt(countRes.rows[0].count);
-    const result = await pool.query('SELECT * FROM maintenance_requests ORDER BY created_at DESC LIMIT $1 OFFSET $2', [limit, offset]);
+    const result = await pool.query('SELECT * FROM maintenance_requests'+where+' ORDER BY created_at DESC LIMIT $'+(qp.length+1)+' OFFSET $'+(qp.length+2), [...qp,limit, offset]);
     res.json({ data: result.rows, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

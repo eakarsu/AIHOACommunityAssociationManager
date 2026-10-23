@@ -1,0 +1,6 @@
+const test=require('node:test'); const assert=require('node:assert/strict');
+const {filterRecords,toCsv,toJson,runFeature}=require('../server/wave36c');
+const rows=[{id:1,title:'A',status:'open',priority:'high',billed_amount:0,passed:false},{id:2,title:'B',status:'done',priority:'low',billed_amount:50,passed:true}];
+test('filter search/status preserves records',()=>{ assert.equal(filterRecords(rows,{search:'a'}).length,1); assert.equal(filterRecords(rows,{status:'done'}).length,1); assert.equal(filterRecords(rows,{}).length,2); });
+test('csv/json export preserves 0 and false',()=>{ const csv=toCsv(rows); assert.ok(csv.includes('0')); assert.ok(csv.includes('false')); assert.equal(JSON.parse(toJson(rows))[0].billed_amount,0); assert.equal(toCsv([]),'id,title,status,priority,owner\n'); });
+test('fallback AI labelled sections preserve 0/false/empty',()=>{ const names=Object.keys(require('../server/wave36c').FEATURES); assert.ok(names.length>=2&&names.length<=3); for(const n of names){ const o=runFeature(n,rows); assert.equal(o.aiGenerated,false); assert.ok(Array.isArray(o.sections)&&o.sections.length>=2); assert.ok(o.sections.every(s=>s.label!==undefined&&'value' in s)); } const e=runFeature(names[0],[]); assert.equal(e.recordCount,0); assert.equal(e.aiGenerated,false); });

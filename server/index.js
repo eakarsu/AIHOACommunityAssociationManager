@@ -13,6 +13,7 @@ validateRuntime();
 
 // === Batch 04 Gaps & Frontend Mounts ===
 const app = express();
+app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Security middleware
 app.use(helmet());
@@ -77,6 +78,7 @@ app.use('/api/architectural', require('./routes/architectural'));
 app.use('/api/emergency', require('./routes/emergency'));
 app.use('/api/parking', require('./routes/parking'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/wave36c', require('./routes/wave36c'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 // Apply pass 5 backlog: violation appeals + ballots
 app.use('/api/violation-appeals', require('./routes/appeals'));
